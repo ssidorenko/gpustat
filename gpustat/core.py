@@ -153,6 +153,7 @@ class GPUStat(object):
     def print_to(self, fp,
                  with_colors=True,    # deprecated arg
                  show_cmd=False,
+                 show_full_cmd=False,
                  show_user=False,
                  show_pid=False,
                  show_power=None,
@@ -225,11 +226,17 @@ class GPUStat(object):
 
         def process_repr(p):
             r = ''
-            if not show_cmd or show_user:
+            if not (show_cmd or show_full_cmd) or show_user:
                 r += "{CUser}{}{C0}".format(
                     _repr(p['username'], '--'), **colors
                 )
-            if show_cmd:
+            if show_full_cmd:
+                if r:
+                    r += ':'
+                r += "{C1}{}{C0}".format(
+                    _repr(p.get('command_line', p['pid']), '--'), **colors
+                )
+            elif show_cmd:
                 if r:
                     r += ':'
                 r += "{C1}{}{C0}".format(
@@ -299,8 +306,11 @@ class GPUStatCollection(object):
                 if not _cmdline:
                     # sometimes, zombie or unknown (e.g. [kworker/8:2H])
                     process['command'] = '?'
+                    process['command_line'] = '?'
                 else:
                     process['command'] = os.path.basename(_cmdline[0])
+                    process['command_line'] = " ".join(_cmdline)
+
                 # Bytes to MBytes
                 process['gpu_memory_usage'] = nv_process.usedGpuMemory // MB
                 process['pid'] = nv_process.pid
@@ -424,9 +434,9 @@ class GPUStatCollection(object):
     # --- Printing Functions ---
 
     def print_formatted(self, fp=sys.stdout, force_color=False, no_color=False,
-                        show_cmd=False, show_user=False, show_pid=False,
-                        show_power=None, show_fan_speed=None, gpuname_width=16,
-                        show_header=True,
+                        show_cmd=False, show_full_cmd=False, show_user=False,
+                        show_pid=False, show_power=None, show_fan_speed=None,
+                        gpuname_width=16, show_header=True,
                         eol_char=os.linesep,
                         ):
         # ANSI color configuration
@@ -471,6 +481,7 @@ class GPUStatCollection(object):
         for g in self:
             g.print_to(fp,
                        show_cmd=show_cmd,
+                       show_full_cmd=show_full_cmd,
                        show_user=show_user,
                        show_pid=show_pid,
                        show_power=show_power,
